@@ -40,6 +40,11 @@ def search():
         if search_results
         else {}
     )
+    favorite_ids = {
+        favorite["youtube_id"]
+        for favorite in k.db.get_favorites()
+        if favorite["youtube_id"] is not None
+    }
     return render_template(
         "search.html",
         site_title=site_name,
@@ -48,4 +53,26 @@ def search():
         search_results=search_results,
         search_string=search_string,
         library_matches=library_matches,
+        favorite_ids=favorite_ids,
+    )
+
+
+@search_bp.route("/favorites", methods=["GET"])
+@public
+def favorites():
+    """Show the songs saved to this karaoke server's shared favorites list."""
+    k = get_karaoke_instance()
+    saved_favorites = k.db.get_favorites()
+    youtube_ids = [
+        favorite["youtube_id"]
+        for favorite in saved_favorites
+        if favorite["youtube_id"] is not None
+    ]
+    return render_template(
+        "favorites.html",
+        site_title=get_site_name(),
+        # MSG: Title of the shared favorites page.
+        title=_("Favorites"),
+        favorites=saved_favorites,
+        library_matches=k.db.get_paths_by_youtube_ids(youtube_ids),
     )

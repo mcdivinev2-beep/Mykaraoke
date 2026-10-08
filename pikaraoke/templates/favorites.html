@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<style>
+	#favorite-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+	#favorite-list li {
+		padding: 0.75rem;
+	}
+	#favorite-list li:nth-child(odd) {
+		background-color: rgb(50, 55, 55);
+	}
+	#favorite-list .search_result_items_meta {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+	#favorite-list .search_result_items_actions {
+		display: flex;
+		flex-direction: column;
+		flex-shrink: 0;
+		gap: 0.5rem;
+	}
+	@media screen and (max-width: 767px) {
+		#favorite-list .search_result_items_meta {
+			align-items: stretch;
+			flex-direction: column;
+		}
+	}
+</style>
+{% endblock %}
+
+{% block header %}
+{# MSG: Subtitle explaining that the favorites list is shared with all guests. #}
+<p class="subtitle is-6">{% trans %}Saved for everyone using this karaoke server{% endtrans %}</p>
+{% endblock %}
+
+{% block content %}
+{% include 'partials/singer_field.html' %}
+<div id="favorites-content">
+{% if favorites %}
+<ul id="favorite-list" class="search_result_items">
+	{% for favorite in favorites %}
+	{% set local_path = library_matches.get(favorite.youtube_id) %}
+	<li data-video-id="{{ favorite.youtube_id }}">
+		<div class="search_result_items_meta">
+			<div>
+				{{ favorite.title }}
+				{% if favorite.channel %}<div class="is-size-7 has-text-grey">{{ favorite.channel }}</div>{% endif %}
+				{% if favorite.duration %}<div class="is-size-7 has-text-grey">{{ favorite.duration }}</div>{% endif %}
+				<a
+					href="https://www.youtube.com/watch?v={{ favorite.youtube_id }}"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="is-size-7 has-text-info"
+				>{% trans %}YouTube{% endtrans %} ↗</a>
+			</div>
+			<div class="search_result_items_actions">
+				{% if local_path %}
+				<a
+					class="button is-info add-song-link"
+					href="#"
+					data-song="{{ url_escape(local_path.encode('utf-8', 'surrogateescape')) }}"
+				>
+					<span class="icon"><i class="icon-list-add"></i></span>
+					<span>{% trans %}Add to queue{% endtrans %}</span>
+				</a>
+				{% else %}
+				<button
+					type="button"
+					class="button is-info favorite-queue-download"
+					data-video-id="{{ favorite.youtube_id }}"
+					data-title="{{ favorite.title }}"
+				>
+					<span class="icon"><i class="icon-list-add"></i></span>
+					<span>{% trans %}Download and queue{% endtrans %}</span>
+				</button>
+				{% endif %}
+				<button type="button" class="button favorite-remove" data-video-id="{{ favorite.youtube_id }}">
+					<span>{% trans %}Remove favorite{% endtrans %}</span>
+				</button>
+			</div>
+		</div>
+	</li>
+	{% endfor %}
+</ul>
+{% else %}
+<p id="no-favorites">{% trans %}No favorite songs have been saved yet.{% endtrans %}</p>
+{% endif %}
+</div>
+<script>
+	$(function () {
+		const removeUrl = "{{ url_for('search_api.add_favorite') }}";
+		const downloadUrl = "{{ url_for('search_api.download') }}";
+		const requestError = {{ _("Could not complete the request.") | tojson }};
+		const queuedLabel = {{ _("Download queued") | tojson }};
+		const noFavorites = {{ _("No favorite songs have been saved yet.") | tojson }};
+
+		$("#favorite-list").on("click", ".favorite-remove", function () {
+			const button = this;
+			const $button = $(button).prop("disabled", true);
+			$.ajax({
+				url: removeUrl + "/" + encodeURIComponent(button.dataset.videoId),
+				type: "DELETE",
+				success: function () {
+					$(button).closest("li").remove();
+					if (!$("#favorite-list li").length) {
+						$("#favorite-list").remove();
+						$("<p>", { id: "no-favorites", text: noFavorites }).appendTo("#favorites-content");
+					}
+				},
+				error: function () {
+					showNotification(requestError, "is-danger");
+					$button.prop("disabled", false);
+				},
+			});
+		});
+
+		$("#favorite-list").on("click", ".favorite-queue-download", function () {
+			const button = this;
+			const $button = $(button).prop("disabled", true).addClass("is-loading");
+			$.ajax({
+				url: downloadUrl,
+				type: "POST",
+				contentType: "application/json",
+				data: JSON.stringify({
+					song_url: "https://www.youtube.com/watch?v=" + button.dataset.videoId,
+					song_title: button.dataset.title,
+					song_added_by: resolveSinger(),
+					queue: true,
+				}),
+				success: function () {
+					$button.removeClass("is-loading").find("span:last-child").text(queuedLabel);
+				},
+				error: function () {
+					showNotification(requestError, "is-danger");
+					$button.prop("disabled", false).removeClass("is-loading");
+				},
+			});
+		});
+	});
+</script>
+{% endblock %}

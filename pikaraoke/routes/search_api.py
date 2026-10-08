@@ -2,7 +2,7 @@
 
 from flask import jsonify
 from flask_smorest import Blueprint
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, validate
 
 from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import get_karaoke_instance
@@ -26,6 +26,17 @@ class DownloadBody(Schema):
     queue = fields.Boolean(
         load_default=False, metadata={"description": "Whether to queue the song after download"}
     )
+
+
+class FavoriteBody(Schema):
+    youtube_id = fields.String(
+        required=True,
+        validate=validate.Regexp(r"^[A-Za-z0-9_-]{11}$"),
+        metadata={"description": "11-character YouTube video ID"},
+    )
+    title = fields.String(required=True, validate=validate.Length(min=1, max=500))
+    channel = fields.String(load_default="", validate=validate.Length(max=300))
+    duration = fields.String(load_default="", validate=validate.Length(max=20))
 
 
 @search_api_bp.route("/api/preview")
@@ -54,3 +65,28 @@ def download(form):
     k.download_manager.queue_download(song, queue, user, title)
 
     return jsonify({"status": "ok"})
+
+
+@search_api_bp.route("/api/favorites", methods=["POST"])
+@public
+@search_api_bp.arguments(FavoriteBody, location="json")
+def add_favorite(form):
+    """Save a song to the server-wide favorites list."""
+    k = get_karaoke_instance()
+    k.db.add_favorite(
+        form["youtube_id"],
+        form["title"],
+        form["channel"],
+        form["duration"],
+    )
+    return jsonify({"success": True})
+
+
+@search_api_bp.route("/api/favorites/<youtube_id>", methods=["DELETE"])
+@public
+def delete_favorite(youtube_id):
+    """Remove a song from the server-wide favorites list."""
+    k = get_karaoke_instance()
+    if not k.db.delete_favorite(youtube_id):
+        return jsonify({"success": False, "error": "Favorite not found"}), 404
+    return jsonify({"success": True})

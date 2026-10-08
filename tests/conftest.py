@@ -25,6 +25,7 @@ _BASE_TEMPLATE_ENDPOINTS = [
     ("/queue", "queue.queue"),
     ("/browse", "files.browse"),
     ("/search", "search.search"),
+    ("/favorites", "search.favorites"),
     ("/info", "info.info"),
     ("/rankings", "sessions.rankings"),
     ("/history", "sessions.history"),

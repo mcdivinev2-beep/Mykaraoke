@@ -96,7 +96,7 @@ class TestUpgradeFromExistingDatabase:
             ).fetchall()
         }
         db.close()
-        assert {"sessions", "plays"} <= tables
+        assert {"sessions", "plays", "favorites"} <= tables
 
     def test_preserves_existing_songs(self, legacy_db_path):
         db = KaraokeDatabase(legacy_db_path)
@@ -175,6 +175,42 @@ class TestGetAllSongPaths:
         )
         paths = set(db.get_all_song_paths())
         assert paths == {"/songs/zebra.mp4", "/songs/apple.mp4", "/songs/Mango.mp4"}
+
+
+class TestFavorites:
+    def test_empty_on_init(self, db):
+        assert db.get_favorites() == []
+
+    def test_adds_and_returns_favorite_metadata(self, db):
+        db.add_favorite("aaaaaaaaaaa", "Song", "Artist", "3:21")
+
+        favorite, = db.get_favorites()
+        assert favorite["youtube_id"] == "aaaaaaaaaaa"
+        assert favorite["title"] == "Song"
+        assert favorite["channel"] == "Artist"
+        assert favorite["duration"] == "3:21"
+        assert favorite["added_at"]
+
+    def test_adding_existing_favorite_refreshes_metadata_without_duplicates(self, db):
+        db.add_favorite("aaaaaaaaaaa", "Old title", "Old artist", "3:21")
+        db.add_favorite("aaaaaaaaaaa", "New title", "New artist", "4:05")
+
+        favorites = db.get_favorites()
+        assert len(favorites) == 1
+        assert favorites[0]["title"] == "New title"
+        assert favorites[0]["channel"] == "New artist"
+        assert favorites[0]["duration"] == "4:05"
+
+    def test_delete_favorite_reports_whether_it_existed(self, db):
+        db.add_favorite("aaaaaaaaaaa", "Song")
+
+        assert db.delete_favorite("aaaaaaaaaaa")
+        assert not db.delete_favorite("aaaaaaaaaaa")
+        assert db.get_favorites() == []
+
+    def test_rejects_invalid_video_id(self, db):
+        with pytest.raises(sqlite3.IntegrityError):
+            db.add_favorite("invalid", "Song")
 
 
 class TestInsertSongs:

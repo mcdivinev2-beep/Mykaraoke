@@ -7,6 +7,8 @@ PiKaraoke is a cross-platform karaoke server that brings the professional "KTV" 
 - 📱 Instant Mobile Remote: Search and queue songs from any smartphone—just scan and sing.
 - 📺 Dedicated Player: High-performance splash screen that can be opened on any web browser for a true karaoke room feel.
 - 🌐 YouTube & Local Media: Play your own files or access more from the web.
+- Shared Favorites: Save YouTube search results and access the list from any device connected to
+  the server.
 - 🎹 Live Pitch Shifting: Adjust the key of any song to match your vocal range.
 - 🛠️ Admin Control: Manage the queue and settings via a password-protected admin mode.
 - 📊 Session Management: Every night is recorded automatically—browse the play history, then see which songs and performers topped the charts.
@@ -96,6 +98,10 @@ pikaraoke
 Launches the player in "headed" mode via your default browser. Scan the QR code to connect mobile remotes. Use `pikaraoke --headless` to run as a background server for external browsers.
 
 See the help command `pikaraoke --help` for available options.
+
+On the **Add New** page, select **Save favorite** on a YouTube result to add it to the
+server-wide list. Open **Favorites** in the Pikaraoke menu to queue saved songs; the list is
+shared across connected devices and persists between restarts.
 
 To upgrade to the latest version of pikaraoke, run:
 

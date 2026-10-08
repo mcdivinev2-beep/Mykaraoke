@@ -31,6 +31,14 @@ CREATE INDEX IF NOT EXISTS idx_artist ON songs(artist);
 CREATE INDEX IF NOT EXISTS idx_title ON songs(title);
 CREATE INDEX IF NOT EXISTS idx_metadata_status ON songs(metadata_status);
 
+CREATE TABLE IF NOT EXISTS favorites (
+    youtube_id TEXT PRIMARY KEY CHECK(length(youtube_id) = 11),
+    title TEXT NOT NULL,
+    channel TEXT NOT NULL DEFAULT '',
+    duration TEXT NOT NULL DEFAULT '',
+    added_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS metadata (
     key TEXT PRIMARY KEY,
     value TEXT
@@ -177,6 +185,15 @@ class KaraokeDatabase:
             ).fetchall()
         return {row[0]: row[1] for row in rows}
 
+    def get_favorites(self) -> list[dict[str, str | None]]:
+        """Return saved YouTube songs, newest favorites first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT youtube_id, title, channel, duration, added_at "
+                "FROM favorites ORDER BY added_at DESC, title COLLATE NOCASE"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     # ------------------------------------------------------------------
     # Batch write operations (used by LibraryScanner)
     # ------------------------------------------------------------------
@@ -246,6 +263,28 @@ class KaraokeDatabase:
     def delete_by_path(self, file_path: str) -> None:
         """Delete a single song by file path (UI-triggered delete)."""
         self.delete_by_paths([file_path])
+
+    def add_favorite(
+        self, youtube_id: str, title: str, channel: str = "", duration: str = ""
+    ) -> None:
+        """Save or refresh a shared favorite by its stable YouTube identity."""
+        with self._lock, self._conn:
+            self._conn.execute(
+                """
+                INSERT INTO favorites (youtube_id, title, channel, duration)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(youtube_id) DO UPDATE SET
+                    title = excluded.title,
+                    channel = excluded.channel,
+                    duration = excluded.duration
+                """,
+                (youtube_id, title, channel, duration),
+            )
+
+    def delete_favorite(self, youtube_id: str) -> bool:
+        """Remove a favorite, returning whether it existed."""
+        cursor = self.execute("DELETE FROM favorites WHERE youtube_id = ?", (youtube_id,))
+        return cursor.rowcount > 0
 
     def update_path(self, old_path: str, new_path: str) -> None:
         """Update a single song's file path (UI-triggered rename)."""

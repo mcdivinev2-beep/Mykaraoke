@@ -498,6 +498,10 @@
                 {# MSG: Dropdown link to the log of everything that has been sung. #}
                 <span>{% trans %}Play History{% endtrans %}</span>
               </a>
+              <a id="favorites" class="navbar-item" href="{{ url_for('search.favorites') }}">
+                {# MSG: Dropdown link to the server-wide list of favorite songs. #}
+                <span>{% trans %}Favorites{% endtrans %}</span>
+              </a>
               <hr class="navbar-divider">
               {% if is_admin() %}
               <a id="sessions" class="navbar-item" href="{{ url_for('sessions.sessions') }}">

@@ -30,6 +30,7 @@ def app():
             ("/info", "info.info"),
             ("/api/download", "search_api.download"),
             ("/api/preview", "search_api.preview"),
+            ("/api/favorites", "search_api.add_favorite"),
         ],
     )
 
@@ -49,6 +50,7 @@ def _rows(response):
 def _search(client, results, library_matches):
     k = MagicMock()
     k.db.get_paths_by_youtube_ids.return_value = library_matches
+    k.db.get_favorites.return_value = []
     with (
         patch("pikaraoke.routes.search.get_karaoke_instance", return_value=k),
         patch("pikaraoke.routes.search.get_site_name", return_value="PiKaraoke"),
@@ -124,3 +126,52 @@ class TestLibraryMatches:
         assert "vi/zzzzzzzzzzz/mqdefault.jpg" in rows
         assert "4:05" in rows
         assert "Chan" in rows
+
+    def test_result_renders_as_saved_when_it_is_a_favorite(self, client):
+        k = MagicMock()
+        k.db.get_paths_by_youtube_ids.return_value = {}
+        k.db.get_favorites.return_value = [
+            {"youtube_id": "zzzzzzzzzzz", "title": "Missing Song", "channel": "Chan"}
+        ]
+        with (
+            patch("pikaraoke.routes.search.get_karaoke_instance", return_value=k),
+            patch("pikaraoke.routes.search.get_site_name", return_value="PiKaraoke"),
+            patch("pikaraoke.routes.search.get_search_results", return_value=[MISSING]),
+        ):
+            response = client.get("/search?search_string=whatever")
+
+        rows = _rows(response)
+        assert 'aria-pressed="true"' in rows
+        assert "Remove favorite" in rows
+
+
+class TestFavoritesPage:
+    def test_renders_saved_favorites_and_download_or_queue_action(self, client):
+        k = MagicMock()
+        k.db.get_favorites.return_value = [
+            {
+                "youtube_id": "aaaaaaaaaaa",
+                "title": "Held Song",
+                "channel": "Chan",
+                "duration": "3:21",
+            },
+            {
+                "youtube_id": "zzzzzzzzzzz",
+                "title": "Missing Song",
+                "channel": "Chan",
+                "duration": "4:05",
+            },
+        ]
+        k.db.get_paths_by_youtube_ids.return_value = {"aaaaaaaaaaa": "/songs/Held Song.mp4"}
+        with (
+            patch("pikaraoke.routes.search.get_karaoke_instance", return_value=k),
+            patch("pikaraoke.routes.search.get_site_name", return_value="PiKaraoke"),
+        ):
+            response = client.get("/favorites")
+
+        body = response.data.decode()
+        assert response.status_code == 200
+        assert "Held Song" in body
+        assert "Missing Song" in body
+        assert "add-song-link" in body
+        assert "favorite-queue-download" in body
